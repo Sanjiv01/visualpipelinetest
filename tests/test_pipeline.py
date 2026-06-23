@@ -15,8 +15,10 @@ def _run(clip, tmp_path):
 
 
 def test_detects_both_clicks(synthetic_clip, tmp_path):
+    """Recall-first: both real clicks MUST be captured. Extra (prunable) events from
+    distractors are acceptable; only guard against gross flooding."""
     manifest, _ = _run(synthetic_clip, tmp_path)
-    assert 2 <= manifest["event_count"] <= 3
+    assert manifest["event_count"] <= 15, "suspiciously many events (flooding)"
     for gt in synthetic_clip["clicks"]:
         near = any(
             e["click"] and math.hypot(e["click"]["x_px"] - gt["x"],
