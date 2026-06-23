@@ -4,8 +4,8 @@
     {
       "name": "walkthrough",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8100", "--directory", "out_real"],
-      "port": 8100
+      "runtimeArgs": ["-m", "http.server", "8102", "--directory", "out_fix2"],
+      "port": 8102
     }
   ]
 }

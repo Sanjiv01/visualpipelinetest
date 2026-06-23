@@ -12,6 +12,7 @@ import time
 from . import associate, cursor, dedup, filters, output
 from .change import ChangeDetector, calibrate_low_threshold
 from .config import Config
+from .cursor_template import learn_cursor_template
 from .io import frames as frames_io
 from .models import ChangeSignal
 from .report import walkthrough
@@ -35,6 +36,14 @@ def analyze(video_path: str, outdir: str, cfg: Config | None = None,
 
     detector = ChangeDetector(cfg, meta)
     tracker = cursor.CursorTracker(cfg, meta)
+    learned = learn_cursor_template(video_path, meta, cfg)
+    if learned is not None and max(learned[2]) >= 8 and int((learned[1] > 0).sum()) >= 20:
+        tracker.set_template(*learned)
+        if verbose:
+            print(f"[clickshot] learned cursor template {learned[2][0]}x{learned[2][1]} "
+                  "-> appearance tracking (locates stationary cursor)")
+    elif verbose:
+        print("[clickshot] no usable cursor template -> motion-only tracking")
     sm = StateMachine(cfg, t_low)
 
     dbg = None
@@ -52,7 +61,7 @@ def analyze(video_path: str, outdir: str, cfg: Config | None = None,
     for fr in frames_io.stream(video_path, meta, cfg):
         cobs = tracker.update(prev, fr)
         history.append(cobs)
-        cur_bbox = cursor.bbox_of(cobs)
+        cur_bbox = cursor.work_bbox_of(cobs, meta.scale)  # work-space for the change mask
 
         if prev is not None:
             mask = cursor.union_mask(fr.work.shape, prev_bbox, cur_bbox, cfg)
@@ -86,7 +95,7 @@ def analyze(video_path: str, outdir: str, cfg: Config | None = None,
         print(f"[clickshot] cursor detection rate {tracker.detection_rate:.0%} "
               f"-> cursor_present={cursor_present}; {len(transitions)} raw transitions")
 
-    events = associate.build_events(transitions, history, cfg, cursor_present)
+    events = associate.build_events(transitions, history, cfg, cursor_present, meta.scale)
     events = filters.apply(events, cfg, meta)
     events = dedup.run(events, cfg)
 

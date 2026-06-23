@@ -72,12 +72,13 @@ def write(events: list[Event], meta: VideoMeta, cfg: Config, outdir: str) -> dic
 
         click = None
         if ev.click is not None:
+            # cursor coords are in ORIGINAL pixels
             click = {
                 "t_s": round(ev.click.t, 3),
-                "x_norm": round(ev.click.x / meta.work_width, 4),
-                "y_norm": round(ev.click.y / meta.work_height, 4),
-                "x_px": int(round(ev.click.x / meta.scale)),
-                "y_px": int(round(ev.click.y / meta.scale)),
+                "x_norm": round(ev.click.x / meta.width, 4),
+                "y_norm": round(ev.click.y / meta.height, 4),
+                "x_px": int(round(ev.click.x)),
+                "y_px": int(round(ev.click.y)),
                 "button": ev.click.button,
                 "source": ev.click.source,
             }

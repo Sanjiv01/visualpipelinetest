@@ -31,21 +31,22 @@ def _cursor_before(history: list[CursorObs], t_start: float, cfg: Config):
     return near[0] if near else None
 
 
-def _dwelled_before(history, t_start, cfg) -> bool:
+def _dwelled_before(history, t_start, cfg, dwell_px) -> bool:
     """Was the cursor settled (slow) in the short window before the change?"""
     window = [o for o in history if t_start - 0.5 <= o.t <= t_start + cfg.assoc_fwd_s and o.x >= 0]
     if not window:
         return False
-    slow = sum(1 for o in window if o.speed < cfg.dwell_speed_px)
+    slow = sum(1 for o in window if o.speed < dwell_px)
     return slow / len(window) >= 0.5
 
 
-def _moved_away(history, t_start, cfg) -> bool:
-    return any(t_start < o.t <= t_start + 0.6 and o.speed > 2 * cfg.dwell_speed_px
+def _moved_away(history, t_start, cfg, dwell_px) -> bool:
+    return any(t_start < o.t <= t_start + 0.6 and o.speed > 2 * dwell_px
               for o in history)
 
 
-def infer(transition: Transition, history: list[CursorObs], cfg: Config, cursor_present: bool):
+def infer(transition: Transition, history: list[CursorObs], cfg: Config,
+          cursor_present: bool, dwell_px: float):
     """Return (ClickEvent|None, confidence, reasons).
 
     Click location = where the cursor was immediately before the screen changed.
@@ -65,10 +66,10 @@ def infer(transition: Transition, history: list[CursorObs], cfg: Config, cursor_
         if recency <= cfg.cursor_recent_s:
             conf = 0.45
             reasons.append("cursor tracked at change onset")
-            if _dwelled_before(history, transition.start_t, cfg):
+            if _dwelled_before(history, transition.start_t, cfg, dwell_px):
                 conf += 0.15
                 reasons.append("cursor settled before change")
-            if _moved_away(history, transition.start_t, cfg):
+            if _moved_away(history, transition.start_t, cfg, dwell_px):
                 conf += 0.10
                 reasons.append("cursor moved away after change")
         else:
@@ -98,10 +99,12 @@ def infer(transition: Transition, history: list[CursorObs], cfg: Config, cursor_
     return click, conf, reasons
 
 
-def build_events(transitions, history, cfg: Config, cursor_present: bool) -> list[Event]:
+def build_events(transitions, history, cfg: Config, cursor_present: bool,
+                 scale: float) -> list[Event]:
+    dwell_px = cfg.dwell_speed_px / max(scale, 1e-6)  # cfg threshold is in work px
     events: list[Event] = []
     for i, tr in enumerate(transitions, start=1):
-        click, conf, reasons = infer(tr, history, cfg, cursor_present)
+        click, conf, reasons = infer(tr, history, cfg, cursor_present, dwell_px)
         events.append(Event(
             id=i, transition=tr, click=click, confidence=conf,
             reasons=reasons, rejected=[], phash=0,

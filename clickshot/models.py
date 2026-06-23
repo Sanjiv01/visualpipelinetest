@@ -22,11 +22,17 @@ class VideoMeta:
 
 @dataclass
 class FrameRecord:
-    """One sampled frame. ``work`` is the downscaled BGR image used for all CV."""
+    """One sampled frame.
+
+    ``work`` is the downscaled BGR image used for change detection; ``orig`` is the
+    full-resolution BGR frame used for cursor tracking (the cursor is too small to
+    follow reliably once downscaled).
+    """
 
     index: int            # native frame index (for re-reading the original on output)
     t: float              # seconds from start
-    work: np.ndarray      # downscaled BGR frame
+    work: np.ndarray      # downscaled BGR frame (change detection)
+    orig: np.ndarray      # full-resolution BGR frame (cursor tracking)
 
 
 @dataclass

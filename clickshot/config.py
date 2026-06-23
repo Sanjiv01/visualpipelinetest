@@ -25,6 +25,9 @@ class Config:
     cursor_jump_frac: float = 0.25    # max plausible per-frame cursor move (frac of diag)
     mask_margin_px: int = 10          # safety margin added around the cursor footprint
     cursor_present_min_rate: float = 0.10  # below this detection rate -> cursor_present=False
+    # regions (x0,y0,x1,y1 as 0..1 fractions) to NEVER treat as cursor or change
+    # — e.g. a webcam overlay. Set via --ignore-region.
+    ignore_regions: tuple = ()
 
     # --- change detection ------------------------------------------------
     prefilter_ratio: float = 0.0008   # cheap diff-ratio gate; below this -> score 0

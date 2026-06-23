@@ -68,7 +68,7 @@ def stream(path: str, meta: VideoMeta, cfg: Config) -> Iterator[FrameRecord]:
             if t <= last_t:  # guard against non-monotonic POS_MSEC
                 t = idx / meta.native_fps
             last_t = t
-            yield FrameRecord(index=idx, t=t, work=_to_work(frame, meta))
+            yield FrameRecord(index=idx, t=t, work=_to_work(frame, meta), orig=frame)
     finally:
         cap.release()
 

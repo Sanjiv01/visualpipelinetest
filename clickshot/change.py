@@ -36,6 +36,11 @@ class ChangeDetector:
         self.area = float(self.h * self.w)
         self.g = cfg.tile_grid
         self.freq = np.zeros((self.g, self.g), np.float32)  # per-tile change EMA
+        # static ignore mask (e.g. webcam overlay): 0 = ignore, 255 = valid
+        self._ignore_mask = np.full((self.h, self.w), 255, np.uint8)
+        for (x0, y0, x1, y1) in cfg.ignore_regions:
+            self._ignore_mask[int(y0 * self.h):int(y1 * self.h),
+                              int(x0 * self.w):int(x1 * self.w)] = 0
 
     @property
     def dynamic_mask(self) -> np.ndarray:
@@ -57,6 +62,7 @@ class ChangeDetector:
         """
         cfg = self.cfg
         combined = cv2.bitwise_and(valid_mask, self.dynamic_mask)
+        combined = cv2.bitwise_and(combined, self._ignore_mask)
         m = combined > 0
         valid = float(m.sum()) or 1.0
 
