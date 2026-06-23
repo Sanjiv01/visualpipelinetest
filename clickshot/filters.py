@@ -76,13 +76,13 @@ def apply(events: list[Event], cfg: Config, meta: VideoMeta) -> list[Event]:
                                 "why": "consequence ~= pre-click state (hover/transient)"})
             continue
 
+        # Recall-first: do NOT drop scrolls — KEEP them but flag low-confidence so
+        # they sort to the bottom and are easy to prune (deleting is easier than
+        # recovering a missed click).
         scroll = _scroll_verdict(tr.span_works, cfg)
         if scroll:
-            strong_click = ev.click is not None and ev.confidence >= 0.55
-            if not strong_click:
-                ev.accepted = False
-                ev.rejected.append({"type": "scroll", "t": tr.start_t, "why": scroll["why"]})
-                continue
-            ev.reasons.append("scroll-like motion present but a click was detected")
+            ev.confidence = min(ev.confidence, 0.3)
+            ev.reasons.append("likely scroll/animation — review")
+            ev.rejected.append({"type": "scroll_flag", "t": tr.start_t, "why": scroll["why"]})
 
     return events

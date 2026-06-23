@@ -55,32 +55,39 @@ def analyze(video_path: str, outdir: str, cfg: Config | None = None,
     transitions = []
     prev = None
     prev_bbox = None
+    ref_work = None          # last stable screen (for accumulated-change trigger)
+    ref_idx, ref_t = -1, 0.0
     last = None
     processed = 0
+    zero = lambda fr: ChangeSignal(fr.index, fr.t, 0.0, 0.0, 1.0, 0.0, 0.0, [])
 
     for fr in frames_io.stream(video_path, meta, cfg):
         cobs = tracker.update(prev, fr)
         history.append(cobs)
         cur_bbox = cursor.work_bbox_of(cobs, meta.scale)  # work-space for the change mask
 
-        if prev is not None:
-            mask = cursor.union_mask(fr.work.shape, prev_bbox, cur_bbox, cfg)
-            sig = detector.score(prev.work, fr.work, mask)
-            sig.index, sig.t = fr.index, fr.t
-        else:
-            sig = ChangeSignal(fr.index, fr.t, 0.0, 0.0, 1.0, 0.0, 0.0, [])
+        if ref_work is None:
+            ref_work, ref_idx, ref_t = fr.work, fr.index, fr.t
 
-        tr = sm.step(fr, sig)
+        mask = cursor.union_mask(fr.work.shape, prev_bbox, cur_bbox, cfg)
+        # sig_prev (consecutive) drives the dynamic-region mask + stabilization;
+        # sig_ref (vs last stable screen) is the recall-first trigger.
+        sig_prev = detector.score(prev.work, fr.work, mask) if prev is not None else zero(fr)
+        sig_ref = detector.score(ref_work, fr.work, mask, update_freq=False)
+        sig_ref.index, sig_ref.t = fr.index, fr.t
+
+        tr = sm.step(fr, sig_ref, sig_prev, (ref_work, ref_idx, ref_t))
         if tr is not None:
             transitions.append(tr)
+            ref_work, ref_idx, ref_t = tr.consequence_work, tr.consequence_index, tr.consequence_t
         if dbg is not None:
-            dbg.add(fr, cobs, sig, sm.state)
+            dbg.add(fr, cobs, sig_ref, sm.state)
 
         prev = fr
         prev_bbox = cur_bbox
         last = fr
         processed += 1
-        if verbose and processed % 2000 == 0:
+        if verbose and processed % 4000 == 0:
             print(f"[clickshot] processed {processed} frames, {len(transitions)} transitions")
 
     if last is not None:

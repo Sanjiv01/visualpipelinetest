@@ -76,16 +76,16 @@ def make_synthetic(path: str) -> dict:
         ang = (t * 280) % 360
         cv2.ellipse(img, (720, 60), (16, 16), 0, ang, ang + 110, (0, 230, 230), 4)
 
-        # vertical scroll of a striped content pane (clean coherent translation)
+        # vertical scroll of a DENSE NON-PERIODIC content area (realistic coherent
+        # translation; non-periodic so optical flow measures the true shift, no aliasing)
         if 5.5 <= t < 6.3:
-            y0, y1, x0, x1 = 300, H - 40, 220, W - 40
-            pane = np.full((y1 - y0, x1 - x0, 3), 70, np.uint8)
-            shift = int((t - 5.5) * 240)
-            for yy in range(-20, pane.shape[0], 24):
-                ly = (yy + shift) % pane.shape[0]
-                cv2.line(pane, (0, ly), (pane.shape[1], ly), (150, 150, 150), 3)
-                cv2.putText(pane, "row", (10, ly - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (210, 210, 210), 1)
-            img[y0:y1, x0:x1] = pane
+            y0, y1, x0, x1 = 120, H - 20, 200, W - 20
+            h, w = y1 - y0, x1 - x0
+            rng = np.random.default_rng(3)
+            small = rng.integers(60, 235, (h // 5, w // 5, 3), dtype=np.uint8)
+            base = cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
+            shift = int((t - 5.5) * 260) % h
+            img[y0:y1, x0:x1] = np.roll(base, shift, axis=0)
 
         _draw_cursor(img, cx, cy)
         writer.append_data(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))

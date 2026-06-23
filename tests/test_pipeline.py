@@ -26,12 +26,13 @@ def test_detects_both_clicks(synthetic_clip, tmp_path):
         assert near, f"no consequence located near ground-truth click {gt}"
 
 
-def test_rejects_non_click_distractors(synthetic_clip, tmp_path):
+def test_scroll_is_flagged_not_dropped(synthetic_clip, tmp_path):
+    """Recall-first: a scroll may appear, but only as a LOW-confidence candidate
+    (so it sorts to the bottom and is easy to prune) — never high-confidence."""
     manifest, _ = _run(synthetic_clip, tmp_path)
-    # nothing in the scroll window (5.5-6.3s) should survive as a click consequence
     for e in manifest["events"]:
-        assert not (5.3 <= e["transition"]["start_t_s"] <= 6.4), \
-            f"a scroll/animation leaked through as event {e['id']}"
+        if 5.3 <= e["transition"]["start_t_s"] <= 6.4:
+            assert e["confidence"] <= 0.45, "scroll leaked as a high-confidence step"
 
 
 def test_outputs_written(synthetic_clip, tmp_path):

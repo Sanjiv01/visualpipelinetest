@@ -60,3 +60,14 @@ def test_union_mask_covers_both_positions():
 def test_bbox_of_unknown_is_none():
     from clickshot.models import CursorObs
     assert cursor.bbox_of(CursorObs(0, 0.0, False, -1, -1, 0, 0, 0.0)) is None
+
+
+def test_scroll_signature_detects_vertical_shift():
+    from clickshot import filters
+    rng = np.random.default_rng(1)
+    base = cv2.resize(rng.integers(0, 255, (60, 80, 3), np.uint8), (400, 300),
+                      interpolation=cv2.INTER_LINEAR)
+    g0 = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
+    g1 = cv2.cvtColor(np.roll(base, 7, axis=0), cv2.COLOR_BGR2GRAY)
+    sig = filters.scroll_signature(g0, g1, Config())
+    assert sig is not None and abs(sig["dy"]) > 2  # coherent vertical translation found
