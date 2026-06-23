@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clickshot"
+version = "0.1.0"
+description = "Extract the frames that are the visual consequence of a user click from a pre-recorded screen video."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "opencv-python>=4.13",
+    "numpy>=2.4",
+    "scikit-image>=0.26",
+    "imageio>=2.34",
+    "imageio-ffmpeg>=0.6",
+    "typer>=0.25",
+]
+
+[project.optional-dependencies]
+# Real Windows system-cursor templates (shape confirmer only; motion-prior works without it).
+cursor = ["pywin32>=306; sys_platform == 'win32'"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+clickshot = "clickshot.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["clickshot"]

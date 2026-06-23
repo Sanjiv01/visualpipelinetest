@@ -1,0 +1,186 @@
+{
+  "meta": {
+    "source_video": "C:\\Users\\sanji\\AppData\\Local\\Temp\\synthetic.mp4",
+    "video_w": 800,
+    "video_h": 448,
+    "native_fps": 30.0,
+    "processed_fps": 12.0,
+    "frame_count": 195,
+    "duration_s": 6.5,
+    "config": {
+      "sample_fps": 12.0,
+      "work_long_side": 480,
+      "cursor_diff_thresh": 22,
+      "cursor_min_area": 3,
+      "cursor_max_area_frac": 0.02,
+      "cursor_max_aspect": 3.5,
+      "cursor_jump_frac": 0.25,
+      "mask_margin_px": 10,
+      "cursor_present_min_rate": 0.1,
+      "prefilter_ratio": 0.0008,
+      "diff_pixel_thresh": 18,
+      "ssim_map_thresh": 0.35,
+      "noise_area_frac": 0.0005,
+      "tile_grid": 8,
+      "tile_bhat_thresh": 0.2,
+      "dr_ref": 0.1,
+      "ssim_ref": 0.4,
+      "cc_ref": 0.05,
+      "dyn_ema_alpha": 0.04,
+      "dyn_freq_thresh": 0.55,
+      "net_change_min": 0.06,
+      "t_high": 0.5,
+      "t_low": 0.12,
+      "stable_seconds": 0.35,
+      "transition_timeout_s": 4.0,
+      "dwell_speed_px": 4.0,
+      "assoc_back_s": 1.5,
+      "assoc_fwd_s": 0.15,
+      "cursor_recent_s": 1.2,
+      "cursor_absent_conf_ceiling": 0.4,
+      "min_confidence": 0.0,
+      "scroll_flow_area": 0.12,
+      "scroll_coherence": 0.6,
+      "scroll_min_shift": 2.5,
+      "scroll_pair_frac": 0.4,
+      "dedup_hamming": 6,
+      "dedup_min_gap_s": 0.8,
+      "gif_frames": 5,
+      "gif_fps": 4
+    },
+    "version": "0.1.0"
+  },
+  "event_count": 2,
+  "events": [
+    {
+      "id": 1,
+      "click": {
+        "t_s": 1.933,
+        "x_norm": 0.1625,
+        "y_norm": 0.3662,
+        "x_px": 130,
+        "y_px": 164,
+        "button": "left",
+        "source": "inferred"
+      },
+      "transition": {
+        "start_t_s": 2.0,
+        "end_t_s": 2.133,
+        "duration_s": 0.133,
+        "peak_change": 1.0,
+        "min_ssim": 0.8062,
+        "timeout": false,
+        "changed_regions": [
+          [
+            434,
+            23,
+            9,
+            11
+          ],
+          [
+            417,
+            32,
+            11,
+            9
+          ],
+          [
+            152,
+            44,
+            285,
+            117
+          ],
+          [
+            19,
+            176,
+            10,
+            21
+          ]
+        ]
+      },
+      "consequence_frame": {
+        "file": "frames/event_0001.png",
+        "before_file": "frames/before_0001.png",
+        "gif": "steps/event_0001.gif",
+        "native_index": 64,
+        "t_s": 2.133,
+        "sharpness": 354.46,
+        "latency_s": 0.2
+      },
+      "confidence": 0.8,
+      "reasons": [
+        "cursor tracked at change onset",
+        "cursor settled before change",
+        "large/discrete transition",
+        "clean re-stabilization"
+      ],
+      "rejected_candidates": [],
+      "phash": 1483208658294891420,
+      "dup_of": null
+    },
+    {
+      "id": 2,
+      "click": {
+        "t_s": 4.467,
+        "x_norm": 0.517,
+        "y_norm": 0.7361,
+        "x_px": 414,
+        "y_px": 330,
+        "button": "left",
+        "source": "inferred"
+      },
+      "transition": {
+        "start_t_s": 4.533,
+        "end_t_s": 5.0,
+        "duration_s": 0.467,
+        "peak_change": 1.0,
+        "min_ssim": 0.8282,
+        "timeout": false,
+        "changed_regions": [
+          [
+            433,
+            22,
+            9,
+            11
+          ],
+          [
+            417,
+            35,
+            11,
+            8
+          ],
+          [
+            128,
+            164,
+            333,
+            86
+          ],
+          [
+            19,
+            176,
+            10,
+            21
+          ]
+        ]
+      },
+      "consequence_frame": {
+        "file": "frames/event_0002.png",
+        "before_file": "frames/before_0002.png",
+        "gif": "steps/event_0002.gif",
+        "native_index": 150,
+        "t_s": 5.0,
+        "sharpness": 612.03,
+        "latency_s": 0.533
+      },
+      "confidence": 0.8,
+      "reasons": [
+        "cursor tracked at change onset",
+        "cursor settled before change",
+        "large/discrete transition",
+        "clean re-stabilization"
+      ],
+      "rejected_candidates": [],
+      "phash": 1547103481550563988,
+      "dup_of": null
+    }
+  ]
+}

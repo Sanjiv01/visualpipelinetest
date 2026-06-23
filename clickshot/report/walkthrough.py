@@ -1,0 +1,196 @@
+"""Build a self-contained index.html that REPLAYS the click -> consequence story.
+
+For each detected step the page shows the screen *before* the click, marks WHERE
+the click lands with a persistent hotspot, animates a ripple, then cross-fades to
+the resulting screen. Play / Next / Prev step through the whole sequence like a
+guided demo. It reads only the manifest + the PNGs already written next to it.
+
+The stage uses a fixed aspect ratio derived from the video dimensions, so it is
+always correctly sized regardless of whether/when the images finish loading
+(this matters when opening index.html directly via file://).
+"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+
+_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>clickshot — click walkthrough</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;
+         background:#0e1116; color:#e6edf3; display:flex; height:100vh; overflow:hidden; }
+  #side { width:280px; flex:none; border-right:1px solid #222a35; overflow-y:auto; background:#0b0e13; }
+  #side h1 { font-size:15px; padding:14px 16px; margin:0; border-bottom:1px solid #222a35; }
+  #side .meta { padding:8px 16px; color:#8b98a9; font-size:12px; border-bottom:1px solid #222a35; }
+  .item { padding:10px 16px; border-bottom:1px solid #161b22; cursor:pointer; display:flex; gap:10px; align-items:center; }
+  .item:hover { background:#11161d; }
+  .item.active { background:#16202c; border-left:3px solid #2f81f7; padding-left:13px; }
+  .item img { width:64px; height:36px; object-fit:cover; border-radius:3px; background:#000; flex:none; }
+  .item .lbl { font-size:12px; }
+  .item .conf { font-size:11px; color:#8b98a9; }
+  #main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #stage { flex:1; display:flex; align-items:center; justify-content:center; padding:20px; min-height:0; }
+  #viewport { position:relative; background:#000; border-radius:6px; overflow:hidden;
+              aspect-ratio: __VW__ / __VH__;
+              width: min(100%, calc(80vh * __VW__ / __VH__)); }
+  #viewport img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; }
+  #imgBefore { z-index:1; }
+  #imgAfter { z-index:2; opacity:0; transition:opacity .55s ease; }
+  /* persistent hotspot marking WHERE to click */
+  #hotspot { position:absolute; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%;
+             border:3px solid #ff5b5b; opacity:0; pointer-events:none; z-index:3;
+             box-shadow:0 0 14px rgba(255,91,91,.7); }
+  #hotspot::after { content:''; position:absolute; inset:36%; border-radius:50%;
+                    background:#ff5b5b; box-shadow:0 0 8px rgba(255,91,91,.9); }
+  #hotspot.show { opacity:1; animation:pulse 1.5s ease-out infinite; }
+  @keyframes pulse { 0%{ box-shadow:0 0 0 0 rgba(255,91,91,.55); }
+                     70%{ box-shadow:0 0 0 18px rgba(255,91,91,0); }
+                     100%{ box-shadow:0 0 0 0 rgba(255,91,91,0); } }
+  #ripple { position:absolute; width:34px; height:34px; margin:-17px 0 0 -17px; border-radius:50%;
+            border:2px solid #ffd23f; background:rgba(255,210,63,.25); opacity:0; pointer-events:none; z-index:4; }
+  #ripple.go { animation:rip .6s ease-out; }
+  @keyframes rip { 0%{ transform:scale(.2); opacity:.9; } 100%{ transform:scale(2.0); opacity:0; } }
+  #bar { flex:none; border-top:1px solid #222a35; padding:12px 18px; background:#0b0e13; }
+  #ctrls { display:flex; gap:10px; align-items:center; }
+  button { background:#1f6feb; color:#fff; border:0; border-radius:6px; padding:8px 16px; font-size:13px; cursor:pointer; }
+  button.secondary { background:#21262d; }
+  button:disabled { opacity:.4; cursor:default; }
+  #caption { margin-top:10px; color:#c9d4e0; }
+  #caption .t { color:#8b98a9; }
+  .reasons { margin-top:4px; color:#8b98a9; font-size:12px; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:10px; background:#16202c; margin:2px 4px 0 0; font-size:11px; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>clickshot walkthrough</h1>
+  <div class="meta" id="sideMeta"></div>
+  <div id="list"></div>
+</div>
+<div id="main">
+  <div id="stage">
+    <div id="viewport">
+      <img id="imgBefore" alt="before"/>
+      <img id="imgAfter" alt="after"/>
+      <div id="hotspot"></div>
+      <div id="ripple"></div>
+    </div>
+  </div>
+  <div id="bar">
+    <div id="ctrls">
+      <button class="secondary" id="prev">&larr; Prev</button>
+      <button id="play">▶ Play step</button>
+      <button class="secondary" id="next">Next &rarr;</button>
+      <span id="counter" style="color:#8b98a9"></span>
+    </div>
+    <div id="caption"></div>
+  </div>
+</div>
+<script>
+const STEPS = __STEPS__;
+const META = __META__;
+let cur = 0;
+
+const before = document.getElementById('imgBefore');
+const after  = document.getElementById('imgAfter');
+const ripple = document.getElementById('ripple');
+const hotspot = document.getElementById('hotspot');
+const list   = document.getElementById('list');
+
+document.getElementById('sideMeta').innerHTML =
+  `${STEPS.length} click consequence(s)<br>${META.source} · ${META.w}×${META.h}`;
+
+STEPS.forEach((s, i) => {
+  const d = document.createElement('div');
+  d.className = 'item';
+  d.innerHTML = `<img src="${s.after}"/><div><div class="lbl">Step ${i+1}` +
+                ` <span class="conf">· ${(s.confidence*100).toFixed(0)}%</span></div>` +
+                `<div class="conf">${s.t.toFixed(1)}s</div></div>`;
+  d.onclick = () => { show(i); replay(); };
+  list.appendChild(d);
+});
+
+function placeMarkers() {
+  // hotspot/ripple are children of #viewport, so percent coords map straight to it
+  const s = STEPS[cur];
+  if (!s.click) { hotspot.classList.remove('show'); return; }
+  const lx = (s.click.x_norm * 100) + '%';
+  const ly = (s.click.y_norm * 100) + '%';
+  hotspot.style.left = lx; hotspot.style.top = ly; hotspot.classList.add('show');
+  ripple.style.left = lx;  ripple.style.top  = ly;
+}
+
+function render() {
+  const s = STEPS[cur];
+  before.src = s.before; after.src = s.after; after.style.opacity = 0;
+  placeMarkers();
+  document.getElementById('counter').textContent = `Step ${cur+1} / ${STEPS.length}`;
+  document.getElementById('prev').disabled = cur === 0;
+  document.getElementById('next').disabled = cur === STEPS.length - 1;
+  const reasons = s.reasons.map(r => `<span class="pill">${r}</span>`).join('');
+  const loc = s.click ? `at (${(s.click.x_norm*100).toFixed(0)}%, ${(s.click.y_norm*100).toFixed(0)}%)` : '(click location unknown)';
+  document.getElementById('caption').innerHTML =
+    `<b>Step ${cur+1}.</b> Click ${loc} <span class="t">· ${s.t.toFixed(2)}s · confidence ${(s.confidence*100).toFixed(0)}%</span>` +
+    `<div class="reasons">${reasons}</div>`;
+  [...list.children].forEach((el, i) => el.classList.toggle('active', i === cur));
+}
+
+function replay() {
+  const s = STEPS[cur];
+  after.style.opacity = 0;
+  ripple.classList.remove('go');
+  placeMarkers();
+  if (s.click) { void ripple.offsetWidth; ripple.classList.add('go'); }
+  setTimeout(() => { after.style.opacity = 1; }, s.click ? 480 : 60);
+}
+
+function show(i) { cur = Math.max(0, Math.min(STEPS.length - 1, i)); render(); }
+document.getElementById('prev').onclick = () => { show(cur - 1); replay(); };
+document.getElementById('next').onclick = () => { show(cur + 1); replay(); };
+document.getElementById('play').onclick = replay;
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') { show(cur + 1); replay(); }
+  if (e.key === 'ArrowLeft')  { show(cur - 1); replay(); }
+  if (e.key === ' ') { e.preventDefault(); replay(); }
+});
+
+if (STEPS.length) { render(); replay(); }
+else { document.getElementById('caption').textContent = 'No click consequences detected.'; }
+</script>
+</body>
+</html>
+"""
+
+
+def build(manifest: dict, outdir: str) -> str:
+    steps = []
+    for e in manifest["events"]:
+        cf = e["consequence_frame"]
+        steps.append({
+            "before": cf["before_file"],
+            "after": cf["file"],
+            "gif": cf.get("gif"),
+            "t": e["transition"]["start_t_s"],
+            "confidence": e["confidence"],
+            "reasons": e["reasons"],
+            "click": ({"x_norm": e["click"]["x_norm"], "y_norm": e["click"]["y_norm"]}
+                      if e.get("click") else None),
+        })
+    vw = manifest["meta"]["video_w"] or 16
+    vh = manifest["meta"]["video_h"] or 9
+    meta = {"source": pathlib.Path(manifest["meta"]["source_video"]).name, "w": vw, "h": vh}
+    html = (_TEMPLATE
+            .replace("__STEPS__", json.dumps(steps))
+            .replace("__META__", json.dumps(meta))
+            .replace("__VW__", str(vw))
+            .replace("__VH__", str(vh)))
+    path = pathlib.Path(outdir) / "index.html"
+    path.write_text(html, encoding="utf-8")
+    return str(path)
